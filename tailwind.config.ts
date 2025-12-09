@@ -57,6 +57,30 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Custom romantic theme colors
+        romantic: {
+          pink: "hsl(var(--romantic-pink))",
+          "pink-light": "hsl(var(--romantic-pink-light))",
+          coral: "hsl(var(--romantic-coral))",
+          peach: "hsl(var(--romantic-peach))",
+          mint: "hsl(var(--romantic-mint))",
+          lavender: "hsl(var(--romantic-lavender))",
+          gold: "hsl(var(--romantic-gold))",
+        },
+        // Space theme colors
+        space: {
+          dark: "hsl(var(--space-dark))",
+          purple: "hsl(var(--space-purple))",
+          blue: "hsl(var(--space-blue))",
+        },
+        star: {
+          white: "hsl(var(--star-white))",
+          gold: "hsl(var(--star-gold))",
+        },
+      },
+      fontFamily: {
+        handwriting: ['Kalam', 'cursive'],
+        script: ['Dancing Script', 'cursive'],
       },
       borderRadius: {
         lg: "var(--radius)",
