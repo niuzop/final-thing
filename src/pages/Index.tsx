@@ -1,13 +1,34 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React, { useState } from "react";
+import FinalLetter from "@/components/FinalLetter";
+import SurprisePage from "@/components/SurprisePage";
 
 const Index = () => {
+  const [currentPage, setCurrentPage] = useState<"letter" | "surprise">("letter");
+
+  const handleRestart = () => {
+    setCurrentPage("letter");
+  };
+
+  const handleSurprise = () => {
+    setCurrentPage("surprise");
+  };
+
+  const handleBackFromSurprise = () => {
+    setCurrentPage("letter");
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <>
+      {currentPage === "letter" && (
+        <FinalLetter 
+          onRestart={handleRestart} 
+          onSurprise={handleSurprise}
+        />
+      )}
+      {currentPage === "surprise" && (
+        <SurprisePage onBack={handleBackFromSurprise} />
+      )}
+    </>
   );
 };
 
