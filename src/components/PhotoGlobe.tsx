@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 
 interface PhotoGlobeProps {
   photos: string[];
@@ -7,48 +7,25 @@ interface PhotoGlobeProps {
   onGlobeReady?: () => void;
 }
 
-interface PhotoPosition {
-  id: number;
-  phi: number;
-  theta: number;
-  photo: string;
-}
-
-const PhotoGlobe: React.FC<PhotoGlobeProps> = ({ photos, isActive, initialPhoto, onGlobeReady }) => {
+const PhotoGlobe: React.FC<PhotoGlobeProps> = ({ photos, isActive, onGlobeReady }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [rotation, setRotation] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [lastX, setLastX] = useState(0);
-  const [manualRotation, setManualRotation] = useState(0);
+  const [offset, setOffset] = useState(0);
   const animationRef = useRef<number>();
 
-  // Fibonacci sphere distribution for even spacing
-  const photoPositions = useMemo(() => {
-    const positions: PhotoPosition[] = [];
-    const numPhotos = Math.min(photos.length, 150);
-    const goldenRatio = (1 + Math.sqrt(5)) / 2;
-    
-    for (let i = 0; i < numPhotos; i++) {
-      const theta = (2 * Math.PI * i) / goldenRatio;
-      const phi = Math.acos(1 - (2 * (i + 0.5)) / numPhotos);
-      
-      positions.push({
-        id: i,
-        phi,
-        theta,
-        photo: photos[i % photos.length],
-      });
-    }
-    
-    return positions;
-  }, [photos]);
+  const numPhotos = Math.min(photos.length, 150);
+  const photoWidth = 80;
+  const photoGap = 20;
+  const totalWidth = numPhotos * (photoWidth + photoGap);
 
-  // Auto-rotation
+  // Continuous animation
   useEffect(() => {
-    if (!isActive || isDragging) return;
+    if (!isActive) return;
 
     const animate = () => {
-      setRotation((prev) => prev + 0.002);
+      setOffset((prev) => {
+        const newOffset = prev + 1.5;
+        return newOffset >= totalWidth ? 0 : newOffset;
+      });
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -60,82 +37,97 @@ const PhotoGlobe: React.FC<PhotoGlobeProps> = ({ photos, isActive, initialPhoto,
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isActive, isDragging, onGlobeReady]);
-
-  // Mouse/touch handlers for manual rotation
-  const handlePointerDown = (e: React.PointerEvent) => {
-    setIsDragging(true);
-    setLastX(e.clientX);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging) return;
-    const deltaX = e.clientX - lastX;
-    setManualRotation((prev) => prev + deltaX * 0.005);
-    setLastX(e.clientX);
-  };
-
-  const handlePointerUp = () => {
-    setIsDragging(false);
-  };
-
-  const globeRadius = 280;
-  const photoSize = 50;
-  const totalRotation = rotation + manualRotation;
+  }, [isActive, totalWidth, onGlobeReady]);
 
   if (!isActive) return null;
+
+  // Calculate position and curve for each photo
+  const getPhotoStyle = (index: number) => {
+    const containerWidth = 800;
+    const centerX = containerWidth / 2;
+    
+    // Base position with offset for continuous movement
+    let baseX = index * (photoWidth + photoGap) - offset;
+    
+    // Wrap around for infinite loop
+    while (baseX < -photoWidth) {
+      baseX += totalWidth;
+    }
+    while (baseX > totalWidth) {
+      baseX -= totalWidth;
+    }
+    
+    // Calculate distance from center (0 to 1)
+    const distanceFromCenter = Math.abs(baseX - centerX + photoWidth / 2) / centerX;
+    const normalizedDistance = Math.min(distanceFromCenter, 1);
+    
+    // Curve outward in center - parabolic curve
+    const curveAmount = 120;
+    const curveY = curveAmount * (1 - normalizedDistance * normalizedDistance);
+    
+    // Scale: larger in center, smaller at edges
+    const scale = 0.6 + 0.6 * (1 - normalizedDistance * normalizedDistance);
+    
+    // Opacity: brighter in center
+    const opacity = 0.3 + 0.7 * (1 - normalizedDistance);
+    
+    // Z-index: higher in center
+    const zIndex = Math.round(100 - normalizedDistance * 100);
+    
+    return {
+      transform: `translateX(${baseX}px) translateY(${curveY}px) scale(${scale})`,
+      opacity,
+      zIndex,
+    };
+  };
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
-      style={{ perspective: "1200px" }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      className="relative w-full h-full flex items-center justify-center overflow-hidden"
     >
+      {/* Curved track visualization */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          width: "100%",
+          height: "300px",
+          background: "radial-gradient(ellipse 80% 40% at 50% 100%, hsl(330 85% 55% / 0.08), transparent 70%)",
+          filter: "blur(30px)",
+        }}
+      />
+      
+      {/* Photo container */}
       <div
         className="relative"
         style={{
-          width: `${globeRadius * 2}px`,
-          height: `${globeRadius * 2}px`,
-          transformStyle: "preserve-3d",
-          transform: `rotateY(${totalRotation}rad)`,
+          width: "800px",
+          height: "400px",
         }}
       >
-        {photoPositions.map((pos) => {
-          // Convert spherical to Cartesian coordinates
-          const x = globeRadius * Math.sin(pos.phi) * Math.cos(pos.theta);
-          const y = globeRadius * Math.cos(pos.phi);
-          const z = globeRadius * Math.sin(pos.phi) * Math.sin(pos.theta);
+        {Array.from({ length: numPhotos }).map((_, index) => {
+          const style = getPhotoStyle(index);
           
-          // Calculate opacity based on z position (front = visible, back = hidden)
-          const rotatedZ = z * Math.cos(totalRotation) - x * Math.sin(totalRotation);
-          const opacity = Math.max(0.1, (rotatedZ + globeRadius) / (globeRadius * 2));
-          const scale = 0.6 + (opacity * 0.4);
+          // Only render if visible
+          if (style.opacity < 0.1) return null;
           
           return (
             <div
-              key={pos.id}
-              className="absolute rounded-lg overflow-hidden shadow-lg border-2 border-white/20 transition-opacity duration-200"
+              key={index}
+              className="absolute rounded-lg overflow-hidden shadow-lg border-2 border-white/20"
               style={{
-                width: `${photoSize}px`,
-                height: `${photoSize}px`,
-                left: `calc(50% - ${photoSize / 2}px)`,
-                top: `calc(50% - ${photoSize / 2}px)`,
-                transform: `translate3d(${x}px, ${y}px, ${z}px) scale(${scale})`,
-                transformStyle: "preserve-3d",
-                opacity: opacity,
-                zIndex: Math.round(rotatedZ + globeRadius),
-                // Keep photos always facing forward (flat)
-                backfaceVisibility: "hidden",
+                width: `${photoWidth}px`,
+                height: `${photoWidth}px`,
+                top: "50%",
+                left: "0",
+                marginTop: `-${photoWidth / 2}px`,
+                ...style,
+                transition: "none",
               }}
             >
               <img
-                src={pos.photo}
-                alt={`Memory ${pos.id + 1}`}
+                src={photos[index % photos.length]}
+                alt={`Memory ${index + 1}`}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
@@ -144,20 +136,21 @@ const PhotoGlobe: React.FC<PhotoGlobeProps> = ({ photos, isActive, initialPhoto,
         })}
       </div>
 
-      {/* Globe glow effect */}
+      {/* Glow effects */}
       <div
         className="absolute rounded-full pointer-events-none"
         style={{
-          width: `${globeRadius * 2.2}px`,
-          height: `${globeRadius * 2.2}px`,
-          background: "radial-gradient(circle, hsl(330 85% 55% / 0.1), transparent 70%)",
-          filter: "blur(20px)",
+          width: "400px",
+          height: "200px",
+          bottom: "20%",
+          background: "radial-gradient(ellipse, hsl(330 85% 55% / 0.15), transparent 70%)",
+          filter: "blur(40px)",
         }}
       />
 
       {/* Instruction text */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/60 text-sm">
-        Drag to explore your memories
+        Watch your memories flow
       </div>
     </div>
   );
