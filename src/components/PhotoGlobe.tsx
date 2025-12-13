@@ -13,8 +13,8 @@ const PhotoGlobe: React.FC<PhotoGlobeProps> = ({ photos, isActive, onGlobeReady 
   const animationRef = useRef<number>();
 
   const numPhotos = Math.min(photos.length, 150);
-  const photoWidth = 80;
-  const photoGap = 20;
+  const photoWidth = 140;
+  const photoGap = 30;
   const totalWidth = numPhotos * (photoWidth + photoGap);
 
   // Continuous animation
